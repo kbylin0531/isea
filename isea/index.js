@@ -448,10 +448,11 @@ var isea = (function (callback_while_all_ready_done) {
                             break;
                         case 'js':
                             isjs = true;
-                            env.waitLoadone(this.append2Header(dom.create("script", {
-                                src: path,
-                                type: "text/javascript"
-                            })), call);
+                            env.waitLoadone(env.append2Header(dom.create("script", {
+                                src: path
+                            })), function () {
+                                env.run(call);
+                            });
                             break;
                         default:
                             throw "undefined type";
@@ -467,21 +468,21 @@ var isea = (function (callback_while_all_ready_done) {
             }
         },
         append2Header: function (ele) {
-            (_headTag || (_headTag = document.getElementsByTagName("head")[0])).appendChild(ele);
+            _headTag || (_headTag = document.getElementsByTagName("head")[0]);
+            _headTag.appendChild(ele);
             return ele;
         },
-        waitLoadone: function (element, callback) {
-            if (element.readyState) { //IE
-                element.onreadystatechange = function () {
-                    if (element.readyState == "loaded" || element.readyState == "complete") {
-                        element.onreadystatechange = null;
-                        callback && callback();
+        waitLoadone: function (ele, call) {
+            if (ele.readyState) { //IE
+                ele.onreadystatechange = function () {
+                    if (ele.readyState == "loaded" || ele.readyState == "complete") {
+                        ele.onreadystatechange = null;
+                        call && call();
                     }
                 };
             } else { //Others
-                callback && (element.onload = callback)
+                call && (ele.onload = call)
             }
-            //notify
         },
         use: function (buildinName, callback) {
             var env = this;
@@ -535,6 +536,7 @@ var isea = (function (callback_while_all_ready_done) {
     return {
         init: init,
         guid: guid,
+        dom: dom,
         client: client,
         cookie: cookie,
         loader: loader,

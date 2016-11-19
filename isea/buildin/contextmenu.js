@@ -9,7 +9,7 @@
  * Licensed under MIT
  * ========================================================= */
 
-;(function($) {
+;(function ($) {
     'use strict';
 
     /* CONTEXTMENU CLASS DEFINITION
@@ -33,22 +33,21 @@
     ContextMenu.prototype = {
 
         constructor: ContextMenu
-        ,show: function(e) {
+        , show: function (e) {
 
             var $menu
-                , evt
                 , tp
                 , items
-                , relatedTarget = { relatedTarget: this, target: e.currentTarget };
+                , relatedTarget = {relatedTarget: this, target: e.currentTarget};
 
             if (this.isDisabled()) return;
 
             this.closemenu();
 
-            if (this.before.call(this,e,$(e.currentTarget)) === false) return;
+            if (this.before.call(this, e, $(e.currentTarget)) === false) return;
 
             $menu = this.getMenu();
-            $menu.trigger(evt = $.Event('show.bs.context', relatedTarget));
+            $menu.trigger($.Event('show.bs.context', relatedTarget));
 
             tp = this.getPosition(e, $menu);
             items = 'li:not(.divider)';
@@ -65,18 +64,17 @@
             return false;
         }
 
-        ,closemenu: function(e) {
+        , closemenu: function (e) {
             var $menu
-                , evt
                 , items
                 , relatedTarget;
 
             $menu = this.getMenu();
 
-            if(!$menu.hasClass('open')) return;
+            if (!$menu.hasClass('open')) return;
 
-            relatedTarget = { relatedTarget: this };
-            $menu.trigger(evt = $.Event('hide.bs.context', relatedTarget));
+            relatedTarget = {relatedTarget: this};
+            $menu.trigger($.Event('hide.bs.context', relatedTarget));
 
             items = 'li:not(.divider)';
             $menu.removeClass('open')
@@ -92,35 +90,35 @@
             }
         }
 
-        ,keydown: function(e) {
+        , keydown: function (e) {
             if (e.which == 27) this.closemenu(e);
         }
 
-        ,before: function() {
+        , before: function () {
             return true;
         }
 
-        ,onItem: function() {
+        , onItem: function () {
             return true;
         }
 
-        ,listen: function () {
+        , listen: function () {
             this.$element.on('contextmenu.context.data-api', this.scopes, $.proxy(this.show, this));
             $('html').on('click.context.data-api', $.proxy(this.closemenu, this))
                 .on('keydown.context.data-api', $.proxy(this.keydown, this));
         }
 
-        ,destroy: function() {
+        , destroy: function () {
             this.$element.off('.context.data-api').removeData('context');
             $('html').off('.context.data-api');
         }
 
-        ,isDisabled: function() {
+        , isDisabled: function () {
             return this.$element.hasClass('disabled') ||
                 this.$element.attr('disabled');
         }
 
-        ,getMenu: function () {
+        , getMenu: function () {
             var selector = this.$element.data('target')
                 , $menu;
 
@@ -134,27 +132,28 @@
             return $menu && $menu.length ? $menu : this.$element.find(selector);
         }
 
-        ,getPosition: function(e, $menu) {
+        , getPosition: function (e, $menu) {
             var thiswin = $(window);
-            var mouseX = e.clientX
+            var droppdownMenu = $menu.find('.dropdown-menu')
+                , mouseX = e.clientX
                 , mouseY = e.clientY
                 , boundsX = thiswin.width()
                 , boundsY = thiswin.height()
-                , menuWidth = $menu.find('.dropdown-menu').outerWidth()
-                , menuHeight = $menu.find('.dropdown-menu').outerHeight()
-                , tp = {"position":"absolute","z-index":9999}
+                , menuWidth = droppdownMenu.outerWidth
+                , menuHeight = droppdownMenu.outerHeight
+                , tp = {"position": "absolute", "z-index": 9999}
                 , Y, X, parentOffset;
 
             if (mouseY + menuHeight > boundsY) {
-                Y = {"top": mouseY - menuHeight + thiswin.scrollTop()};
+                Y = {"top": mouseY - menuHeight + thiswin.scrollTop};
             } else {
-                Y = {"top": mouseY + thiswin.scrollTop()};
+                Y = {"top": mouseY + thiswin.scrollTop};
             }
 
             if ((mouseX + menuWidth > boundsX) && ((mouseX - menuWidth) > 0)) {
-                X = {"left": mouseX - menuWidth + thiswin.scrollLeft()};
+                X = {"left": mouseX - menuWidth + thiswin.scrollLeft};
             } else {
-                X = {"left": mouseX + thiswin.scrollLeft()};
+                X = {"left": mouseX + thiswin.scrollLeft};
             }
 
             // If context-menu's parent is positioned using absolute or relative positioning,
@@ -172,8 +171,8 @@
     /* CONTEXT MENU PLUGIN DEFINITION
      * ========================== */
 
-    $.fn.contextmenu = function (option,e) {
-        return this.each(function () {
+    $.fn.contextmenu = function (option, e) {
+        return $.each(function () {
             var $this = $(this)
                 , data = $this.data('context')
                 , options = (typeof option == 'object') && option;
@@ -189,14 +188,14 @@
      * =================================== */
 
     $(document)
-        .on('contextmenu.context.data-api', function() {
+        .on('contextmenu.context.data-api', function () {
             $(toggle).each(function () {
                 var data = $(this).data('context');
                 if (!data) return;
                 data.closemenu();
             });
         })
-        .on('contextmenu.context.data-api', toggle, function(e) {
+        .on('contextmenu.context.data-api', toggle, function (e) {
             $(this).contextmenu('show', e);
 
             e.preventDefault();
@@ -205,9 +204,8 @@
 
 }(jQuery));
 
-
-L.P.contextmenu = (function () {
-    if(!("contextmenu" in $)) throw "require contextmenu and jquery";
+isea.contextmenu = (function () {
+    if (!("contextmenu" in $)) throw "require contextmenu and jquery";
     return {
         /**
          * create a menu-handler object
@@ -217,20 +215,23 @@ L.P.contextmenu = (function () {
          * @param before
          */
         create: function (menus, handler, onItem, before) {
-            var ul, id = 'cm_' + L.guid(), cm = $("<div id='" + id + "'></div>"), flag = false, ns = L.NS(this);
-            $("body").prepend(cm.append(ul = $(L.newEle("ul.dropdown-menu",{"role":"menu"}))));
+            var ul, id = 'cm_' + isea.guid(), cm = $("<div id='" + id + "'></div>"), flag = false, ns = L.NS(this);
+            $("body").prepend(cm.append(ul = $(isea.dom.create("ul.dropdown-menu", {"role": "menu"}))));
             //菜单项
             L.U.each(menus, function (group) {
-                flag && ul.append(L.newEle("li.divider"));//对象之间划割
+                flag && ul.append(isea.dom.create("li.divider"));//对象之间划割
                 L.U.each(group, function (value, key) {
-                    ul.append(L.newEle("li",{},'<a tabindex="' + key + '">' + value + '</a>'));
+                    ul.append(isea.dom.create("li", {}, '<a tabindex="' + key + '">' + value + '</a>'));
                 });
                 flag = true;
             });
 
-            before || (before = function (e, c) {});
-            onItem || (onItem = function (c, e) {});
-            handler || (handler = function (element, tabindex, text) {});
+            before || (before = function (e, c) {
+            });
+            onItem || (onItem = function (c, e) {
+            });
+            handler || (handler = function (element, tabindex, text) {
+            });
 
             //这里的target的上下文意思是 公共配置组
             ns.target = {
