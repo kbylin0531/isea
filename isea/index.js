@@ -1,6 +1,5 @@
 /**
  * Created by linzhv on 11/18/16.
- *
  * Note:
  *  querySelector() only return the first match
  *  querySelectorAll return all pattern matches
@@ -11,36 +10,15 @@
 var BREAK = '[break]';
 var CONTINUE = '[continue]';
 var BASE_DIR = null;
-var BROWSER = null;//{type: "Chrome", version: "50.0.2661.94"}
+var BROWSER = {};//{type: "Chrome", version: "50.0.2661.94"}
 // if(typeof PUBLIC_URL == 'undefined'){
 //     PUBLIC_URL = '/';//script parent url
 // }
-function each(obj, call, meta) {
-    var result = undefined;
-    if (util.isArr(obj)) {
-        for (var i = 0; i < obj.length; i++) {
-            result = call(obj[i], i, meta);
-            if (result === BREAK) break;
-            if (result === CONTINUE) continue;
-            if (result !== undefined) return result;
-        }
-    } else if (util.isObj(obj)) {
-        for (var key in obj) {
-            if (!obj.hasOwnProperty(key)) continue;
-            result = call(obj[key], key, meta);
-            if (result === BREAK) break;
-            if (result === CONTINUE) continue;
-            if (result !== undefined) return result;
-        }
-    } else {
-        console.log(obj);
-        throw "EACH_EXCEPTION";
-    }
-}
-
 
 var isea = (function (callback_while_all_ready_done) {
     "use strict";
+
+    var _headTag = null;
 
     var util = {
         /** check if key exist and the value is not empty */
@@ -62,9 +40,6 @@ var isea = (function (callback_while_all_ready_done) {
         toObj: function (json) {
             return this.isObj(json) ? json : eval("(" + json + ")");
         },
-        isArr: function (el) {
-            return Array.isArray ? Array.isArray(el) : (this.gettype(el) === "array");
-        },
         isStr: function (el) {
             return this.gettype(el) === "string";
         },
@@ -77,11 +52,22 @@ var isea = (function (callback_while_all_ready_done) {
          */
         prop: function (obj, properties) {
             var count = 0;
-            if (!this.isArr(properties)) properties = [properties];
+            if (!Array.isArray(properties)) properties = [properties];
             for (var i = 0; i < properties.length; i++)if (obj.hasOwnProperty(properties[i])) count++;
             return count === properties.length ? 1 : (count === 0 ? 0 : -1);
         }
     };
+
+    function each(obj, call, meta) {
+        var result;
+        for (var key in obj) {
+            if (!obj.hasOwnProperty(key)) continue;
+            result = call(obj[key], key, meta);
+            if (result === BREAK) break;
+            if (result === CONTINUE) continue;
+            if (result !== undefined) return result;
+        }
+    }
 
     function init(config, target, cover) {
         each(config, function (item, key) {
@@ -100,15 +86,6 @@ var isea = (function (callback_while_all_ready_done) {
         s[19] = hexDigits.substr((s[19] & 0x3) | 0x8, 1);  // bits 6-7 of the clock_seq_hi_and_reserved to 01
         s[8] = s[13] = s[18] = s[23] = "-";
         return s.join("");
-    }
-
-    function pathful(path) {
-        if (!path.beginWith("http")) {
-            if (!path.beginWith("/")) {
-                path = BASE_DIR + path;
-            }
-        }
-        return path;
     }
 
     function getResourceType(path) {
@@ -137,6 +114,11 @@ var isea = (function (callback_while_all_ready_done) {
             };
             return c;
         })());
+
+        if (!Array.isArray) Array.isArray = function (el) {
+            return util.gettype(el) === "array";
+        };
+
         each({
             indexOf: function (elt) {
                 var len = this.length >>> 0;
@@ -162,12 +144,6 @@ var isea = (function (callback_while_all_ready_done) {
             trim: function () {
                 return this.replace(/(^\s*)|(\s*$)/g, '');
             },
-            ltrim: function () {
-                return this.replace(/(^\s*)/g, '');
-            },
-            rtrim: function () {
-                return this.replace(/(\s*$)/g, '');
-            },
             beginWith: function (chars) {
                 return this.indexOf(chars) === 0;
             },
@@ -178,16 +154,22 @@ var isea = (function (callback_while_all_ready_done) {
             if (!String.prototype[i]) String.prototype[i] = v;
         });
     })();
+    function dirname(path) {
+        return path.replace(/\\/g, '/').replace(/\/[^\/]*$/, '');
+    }
 
+    //get the position of this file
     (function () {
-        //get the position of this file
-        var scripts = document.getElementsByTagName("script");
-        each(scripts, function (script) {
-            if (script.src && script.src.indexOf("/isea/index.js")) {
-                BASE_DIR = script.src.replace("/isea/index.js", "/isea/");
-                return BREAK;
-            }
-        });
+        console.log(location, dirname(location.pathname));
+        BASE_DIR = dirname(location.pathname) + "/";
+
+        // var scripts = document.getElementsByTagName("script");
+        // each(scripts, function (script) {
+        //     if (script.src && script.src.indexOf("/isea/index.js")) {
+        //         BASE_DIR = script.src.replace("/isea/index.js", "/");
+        //         return BREAK;
+        //     }
+        // });
     })();
 
     (function () {
@@ -218,24 +200,6 @@ var isea = (function (callback_while_all_ready_done) {
             BROWSER.version = 0;
         }
     })();
-
-    var resourceLibrary = {
-        _: {},
-        parseName: function (name) {
-            if (name.indexOf('/') >= 0) {
-                name = name.split('/');
-                name = name[name.length - 1];
-            }
-            return name;
-        },
-        hasExist: function (name) {
-            return this.parseName(name) in this._;
-        },
-        checkIn: function (name) {
-            this._[this.parseName(name)] = true;
-            return this;
-        }
-    };
 
     var client = {
         viewport: function () {
@@ -425,33 +389,88 @@ var isea = (function (callback_while_all_ready_done) {
         }
     };
 
-    var _headTag = null;
     var loader = {
+        library: {
+            _: {},
+            parse: function (name) {
+                if (name.indexOf('/') >= 0) {
+                    name = name.split('/');
+                    name = name[name.length - 1];
+                }
+                return name;
+            },
+            has: function (name) {
+                return this.parse(name) in this._;
+            },
+            add: function (name) {
+                this._[this.parse(name)] = true;
+                return this;
+            }
+        },
+        stack: [],
+        push: function (path) {
+            var env = this;
+            Array.isArray(path) ? each(path, function (p) {
+                env.stack.push(p);
+            }) : env.stack.push(path);
+            return env;
+        },
+        pathful: function (path) {
+            if (!path.beginWith("http") && !path.beginWith("/")) {
+                path = BASE_DIR + path;
+            }
+            return path;
+        },
+        // run autoload in order and continue if another one to load exist
+        // parameter 2 means if it wait current load done and go next
+        run: function (call) {
+            if (this.stack.length) {
+                var env = this, isjs = false;
+                var path = this.pathful(env.stack.shift());
+
+                if (!env.library.has(path)) {
+                    //Note: using "document.write('<link .....>')" may cause load out of order
+                    var type = getResourceType(path);
+                    switch (type) {
+                        /* css and icon is important less ,do not wait it done*/
+                        case 'css':
+                            env.append2Header(dom.create("link", {
+                                href: path,
+                                rel: "stylesheet",
+                                type: "text/css"
+                            }));
+                            break;
+                        case 'ico':
+                            env.append2Header(dom.create("link", {
+                                href: path,
+                                rel: "shortcut icon"
+                            }));
+                            break;
+                        case 'js':
+                            isjs = true;
+                            env.waitLoadone(this.append2Header(dom.create("script", {
+                                src: path,
+                                type: "text/javascript"
+                            })), call);
+                            break;
+                        default:
+                            throw "undefined type";
+                    }
+                    /* mark this path has pushed */
+                    env.library.add(path);
+                }
+
+                //callback while one load finished
+                call && call(path, env.stack.length);
+                //go next
+                env.stack.length && !isjs && env.run(call);
+            }
+        },
         append2Header: function (ele) {
-            if (!_headTag) _headTag = document.getElementsByTagName("head")[0];
-            _headTag.appendChild(ele);
+            (_headTag || (_headTag = document.getElementsByTagName("head")[0])).appendChild(ele);
             return ele;
         },
-        linkIcon: function (path) {
-            this.append2Header(dom.create("link", {
-                href: path,
-                rel: "shortcut icon"
-            }));
-        },
-        linkStyle: function (path) {
-            this.append2Header(this.create("link", {
-                href: path,
-                rel: "stylesheet",
-                type: "text/css"
-            }));
-        },
-        linkScript: function (url, callback) {
-            this.readyDone(this.append2Header(this.create("script", {
-                src: url,
-                type: "text/javascript"
-            })), callback);
-        },
-        readyDone: function (element, callback) {
+        waitLoadone: function (element, callback) {
             if (element.readyState) { //IE
                 element.onreadystatechange = function () {
                     if (element.readyState == "loaded" || element.readyState == "complete") {
@@ -460,82 +479,35 @@ var isea = (function (callback_while_all_ready_done) {
                     }
                 };
             } else { //Others
-                if (callback) element.onload = callback;
+                callback && (element.onload = callback)
             }
             //notify
         },
         use: function (buildinName, callback) {
             var env = this;
-            if (!util.isArr(buildinName)) {
+            if (!Array.isArray(buildinName)) {
                 buildinName = [buildinName];
             } else if (util.isStr(buildinName) && (buildinName.indexOf(",") > 0)) {
                 buildinName = buildinName.split(",");
             }
             each(buildinName, function (m) {
-                var src = position() + "build-in";
+                var src = position() + "isea/buildin";
                 if (!m.beginWith("/")) src += "/";
                 env.load(src + m + ".js", 'js', callback);
             });
-            return this;
+            return env;
         },
+        _loadStack: [],
         /**
          * load resource for page
-         * @param path like '/js/XXX.YY' which oppo to public_url
-         * @param type file type
-         * @param call callback
-         * @returns {Window.L}
+         * multiple load will go the diffirent process
          */
         load: function (path, type, call) {
             var env = this;
-            if (util.isArr(path)) {
-                //同一个组合中也按照顺序加载
-                if (path.length > 1) {
-                    var loadItem = function (index, callback) {
-                        var type = getResourceType(path[index]);
-                        if (index == (path.length - 1)) {
-                            //last one
-                            env.load(path[index], type, callback);
-                        } else {
-                            env.load(path[index], type, function () {
-                                //load next
-                                loadItem(1 + index, callback);
-                            });
-                        }
-                    };
-                    loadItem(0, call);
-                } else {
-                    env.load(path[1], null, call);
-                }
+            if (Array.isArray(path)) {
+                env.push(path).run(call);
             } else {/* is string */
-                if (!type) type = env.getResourceType(path);
-                if (resourceLibrary.has(path)) {
-                    /* 本页面加载过将不再重新载入
-                     * 如果库在之前定义过(那么制定到这里的时候一定是加载过的，因为之后加在完成才能执行回调序列)
-                     * 可以直接视为加在完毕
-                     */
-                    call.call();
-                } else {
-                    //现仅仅支持css,js,ico的类型
-                    //注意的是，直接使用document.write('<link .....>') 可能導致html頁面混亂。。。
-                    switch (type) {
-                        /* css and icon is important less ,do not wait it done*/
-                        case 'css':
-                            env.linkStyle(pathful(path));
-                            call.call();
-                            break;
-                        case 'js':
-                            env.linkScript(pathful(path), call);
-                            break;
-                        case 'ico':
-                            env.linkIcon(pathful(path));
-                            call.call();
-                            break;
-                        default:
-                            throw "undefined:" + type;
-                    }
-                    /* mark this path has pushed */
-                    resourceLibrary.add(path);
-                }
+                env.push(path).run(call);
             }
             return env;
         }
@@ -546,9 +518,9 @@ var isea = (function (callback_while_all_ready_done) {
         stack: []/*folo*/
     };
     var flag_page_load_done = false;
-    //传递给loadone方法的
+    // parameters for loadone
     var parameters_for_ready_done_callback = {
-        plugins: [] /*插件加载队列*/
+        plugins: [] /* plugin load order */
     };
     document.onreadystatechange = function () {
         if (document.readyState === "complete" || document.readyState === "loaded") {
@@ -561,6 +533,11 @@ var isea = (function (callback_while_all_ready_done) {
         }
     };
     return {
+        init: init,
+        guid: guid,
+        client: client,
+        cookie: cookie,
+        loader: loader,
         ready: function (c, prepend) {
             prepend ? ReadyGoo.stack.push(c) : ReadyGoo.heap.push(c);
         },
@@ -585,75 +562,3 @@ var isea = (function (callback_while_all_ready_done) {
     };
     lq(0);
 });
-
-/**
- P: {
-            JsMap: {},//plugin autoload start
-            import: function (option) {
-                L.init(option, this.JsMap, true);
-            },
-            get: function (name, dft) {
-                return name ? (O.notempty(name, this.JsMap) ? this.JsMap[name] : (dft || false)) : this.JsMap;
-            },
-            load: function (pnm, call) {
-if (pnm in this.JsMap) pnm = this.JsMap[pnm];
-if (ild) {
-    // it will not put into quene if page has load done！
-    L.load(pnm, null, call);
-} else {
-    pps.plugins.push([pnm, call]);
-}
-return this;
-},
-initlize:  function (sele, opts, funcNm, pluNm, call) {
-    pluNm = pluNm ? pluNm : funcNm;
-    var jq = this._jq ? this._jq : (this._jq = $());
-    L.load(this.JsMap[pluNm], null, function () {
-        if (!L.O.isObj(sele) || (sele instanceof jQuery)) {
-            sele = $(sele);
-            opts || (opts = {});
-            (funcNm in jq) && (jq[funcNm]).apply(sele, O.isArr(opts) ? opts : [opts]);
-            call && call(sele);
-        } else {
-            var list = [];
-            L.U.each(sele, function (params, k) {
-                list.push(k = $(k));
-                (funcNm in jq) && (jq[funcNm]).apply(k, O.isArr(params) ? params : [params]);
-            });
-            call && call(list);
-        }
-    });
-}
-},
- var clone = function (obj) {
-        //null 本身就是一个空的对象
-        if (!obj || "object" !== typeof obj) return obj;
-        var copy = null;
-        // Handle Date
-        if (obj instanceof Date) {
-            copy = new Date();
-            copy.setTime(obj.getTime());
-            return copy;
-        }
-        // Handle Array
-        if (obj instanceof Array) {
-            copy = [];
-            var len = obj.length;
-            for (var i = 0; i < len; ++i) {
-                copy[i] = clone(obj[i]);
-            }
-            return copy;
-        }
-
-        // Handle Object
-        if (obj instanceof Object) {
-            copy = {};
-            for (var attr in obj) {
-                if (obj.hasOwnProperty(attr)) copy[attr] = clone(obj[attr]);
-            }
-            return copy;
-        }
-
-        throw new Error("Unable to copy obj! Its type isn't supported.");
-    };
- */
