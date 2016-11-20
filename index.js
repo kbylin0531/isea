@@ -6,7 +6,7 @@
  */
 
 
-//constant
+//fake-constant define
 var BREAK = '[break]';
 var CONTINUE = '[continue]';
 var BASE_DIR = null;
@@ -154,22 +154,18 @@ var isea = (function (callback_while_all_ready_done) {
             if (!String.prototype[i]) String.prototype[i] = v;
         });
     })();
-    function dirname(path) {
-        return path.replace(/\\/g, '/').replace(/\/[^\/]*$/, '');
-    }
 
     //get the position of this file
     (function () {
-        console.log(location, dirname(location.pathname));
-        BASE_DIR = dirname(location.pathname) + "/";
-
-        // var scripts = document.getElementsByTagName("script");
-        // each(scripts, function (script) {
-        //     if (script.src && script.src.indexOf("/isea/index.js")) {
-        //         BASE_DIR = script.src.replace("/isea/index.js", "/");
-        //         return BREAK;
-        //     }
-        // });
+        // console.log(location, dirname(location.pathname));
+        // BASE_DIR = location.pathname.replace(/\\/g, '/').replace(/\/[^\/]*$/, '') + "/";
+        var scripts = document.getElementsByTagName("script");
+        each(scripts, function (script) {
+            if (script.src && script.src.endWith("/isea/index.js")) {
+                BASE_DIR = script.src.replace("/isea/index.js", "/");
+                return BREAK;
+            }
+        });
     })();
 
     (function () {
@@ -250,11 +246,11 @@ var isea = (function (callback_while_all_ready_done) {
                 }
             }
         },
-        parseUrl: function (s) {
+        parse: function (queryString) {
             var o = {};
-            if (s) {
-                s = decodeURI(s);
-                var arr = s.split("&");
+            if (queryString) {
+                queryString = decodeURI(queryString);
+                var arr = queryString.split("&");
                 for (var i = 0; i < arr.length; i++) {
                     var d = arr[i].split("=");
                     o[d[0]] = d[1] ? d[1] : '';
@@ -410,9 +406,7 @@ var isea = (function (callback_while_all_ready_done) {
         stack: [],
         push: function (path) {
             var env = this;
-            Array.isArray(path) ? each(path, function (p) {
-                env.stack.push(p);
-            }) : env.stack.push(path);
+            env.stack.push(path);
             return env;
         },
         pathful: function (path) {
@@ -421,51 +415,81 @@ var isea = (function (callback_while_all_ready_done) {
             }
             return path;
         },
+        _load: function (path, call) {
+            var env = this, isjs = false;
+            //Note: using "document.write('<link .....>')" may cause load out of order
+            var type = getResourceType(path);
+            switch (type) {
+                /* css and icon is important less ,do not wait it done*/
+                case 'css':
+                    env.append2Header(dom.create("link", {
+                        href: path,
+                        rel: "stylesheet",
+                        type: "text/css"
+                    }));
+                    break;
+                case 'ico':
+                    env.append2Header(dom.create("link", {
+                        href: path,
+                        rel: "shortcut icon"
+                    }));
+                    break;
+                case 'js':
+                    isjs = true;
+                    env.waitLoadone(env.append2Header(dom.create("script", {
+                        src: path
+                    })), call);
+                    break;
+                default:
+                    throw "undefined type";
+            }
+            /* mark this path has pushed */
+            env.library.add(path);
+            !isjs && call && call.call();
+            return isjs;
+        },
         // run autoload in order and continue if another one to load exist
         // parameter 2 means if it wait current load done and go next
         run: function (call) {
+            var env = this;
             if (this.stack.length) {
-                var env = this, isjs = false;
-                var path = this.pathful(env.stack.shift());
+                var isjs = false;
+                var path = env.stack.shift();
 
-                if (!env.library.has(path)) {
-                    //Note: using "document.write('<link .....>')" may cause load out of order
-                    var type = getResourceType(path);
-                    switch (type) {
-                        /* css and icon is important less ,do not wait it done*/
-                        case 'css':
-                            env.append2Header(dom.create("link", {
-                                href: path,
-                                rel: "stylesheet",
-                                type: "text/css"
-                            }));
-                            break;
-                        case 'ico':
-                            env.append2Header(dom.create("link", {
-                                href: path,
-                                rel: "shortcut icon"
-                            }));
-                            break;
-                        case 'js':
-                            isjs = true;
-                            env.waitLoadone(env.append2Header(dom.create("script", {
-                                src: path
-                            })), function () {
-                                env.run(call);
+                if (Array.isArray(path)) {
+                    var len = path.length;
+                    var loadItem = function (index, callback) {
+                        var e = this;
+                        var p = env.pathful(path[index]);
+                        if (index == len - 1) {
+                            //last one
+                            env._load(p, callback);
+                        } else {
+                            env._load(p, function () {
+                                //load next
+                                loadItem(1 + index, callback);
                             });
-                            break;
-                        default:
-                            throw "undefined type";
-                    }
-                    /* mark this path has pushed */
-                    env.library.add(path);
+                        }
+                    };
+                    return loadItem(0, call);
+                } else {
+                    path = this.pathful(path);
                 }
 
-                //callback while one load finished
-                call && call(path, env.stack.length);
-                //go next
-                env.stack.length && !isjs && env.run(call);
+                if (!env.library.has(path)) isjs = this._load(path, call);
+
+                if (!isjs) {
+                    //callback while one load finished
+                    call && call(path, env.stack.length);
+                    //go next
+                    env.stack.length && env.run(call);
+                }
             }
+            // else {
+            //     setTimeout(function () {
+            //         env.run(call);
+            //     }, 3000);
+            // }
         },
         append2Header: function (ele) {
             _headTag || (_headTag = document.getElementsByTagName("head")[0]);
@@ -492,9 +516,9 @@ var isea = (function (callback_while_all_ready_done) {
                 buildinName = buildinName.split(",");
             }
             each(buildinName, function (m) {
-                var src = position() + "isea/buildin";
+                var src = BASE_DIR + "isea/buildin";
                 if (!m.beginWith("/")) src += "/";
-                env.load(src + m + ".js", 'js', callback);
+                env.load(src + m + ".js", callback);
             });
             return env;
         },
@@ -503,14 +527,9 @@ var isea = (function (callback_while_all_ready_done) {
          * load resource for page
          * multiple load will go the diffirent process
          */
-        load: function (path, type, call) {
-            var env = this;
-            if (Array.isArray(path)) {
-                env.push(path).run(call);
-            } else {/* is string */
-                env.push(path).run(call);
-            }
-            return env;
+        load: function (path, call) {
+            this.push(path).run(call);
+            return this;
         }
     };
 
@@ -537,11 +556,12 @@ var isea = (function (callback_while_all_ready_done) {
         init: init,
         guid: guid,
         dom: dom,
+        util: util,
         client: client,
         cookie: cookie,
         loader: loader,
         ready: function (c, prepend) {
-            prepend ? ReadyGoo.stack.push(c) : ReadyGoo.heap.push(c);
+            prepend ? readyStack.stack.push(c) : readyStack.heap.push(c);
         },
         clone: function (context) {
             var instance = {};

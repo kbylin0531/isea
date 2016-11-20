@@ -530,10 +530,10 @@ var md5 = (function () {
         return temp.toLowerCase();
     });
 })();
-
-
-L.sha1 = sha1;
-L.md5 = md5;
+isea.encrypt = {
+    sha1:sha1,
+    md5:md5
+};
 // console.log(md5('123456'));
 // console.log(sha1('123456'));
 // 加密测试
